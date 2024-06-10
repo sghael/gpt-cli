@@ -144,6 +144,14 @@ def parse_args(input: str) -> Tuple[str, Dict[str, Any]]:
     for i, (part, delimiter) in enumerate(extracted_parts):
         input = input.replace(f"__EXTRACTED_PART_{i}__", f"{delimiter}{part.strip()}{delimiter}")
 
+# def parse_args(input: str, parse_args = False) -> Tuple[str, Dict[str, Any]]:
+#     args = {}
+#     if parse_args:
+#         regex = r"--(\w+)(?:\s+|=)([^\s]+)"
+#         matches = re.findall(regex, input)
+#         if matches:
+#             args = dict(matches)
+#             input = input.split("--")[0].strip()
     return input, args
 
 
