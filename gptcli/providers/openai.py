@@ -1,4 +1,5 @@
 import re
+import os
 from typing import Iterator, List, Optional, cast
 import openai
 from openai import OpenAI
@@ -58,6 +59,10 @@ class OpenAICompletionProvider(CompletionProvider):
                             total_tokens=response.usage.total_tokens,
                             pricing=pricing,
                         )
+                    # add the citations
+                    if len(response.choices) > 0 and response.choices[0].finish_reason:
+                        if hasattr(response, 'citations') and response.citations:
+                            yield MessageDeltaEvent(os.linesep + os.linesep + "".join([(f"{citation} [{i+1}]" + os.linesep) for i, citation in enumerate(response.citations)]))
             else:
                 response = self.client.chat.completions.create(
                     messages=cast(List[ChatCompletionMessageParam], messages),

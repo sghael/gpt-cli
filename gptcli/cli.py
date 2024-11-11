@@ -111,15 +111,6 @@ class CLIChatListener(ChatListener):
         return CLIResponseStreamer(self.console, self.markdown)
 
 
-# def parse_args(input: str, parse_args = False) -> Tuple[str, Dict[str, Any]]:
-#     args = {}
-#     if parse_args:
-#         regex = r"--(\w+)(?:\s+|=)([^\s]+)"
-#         matches = re.findall(regex, input)
-#         if matches:
-#             args = dict(matches)
-#             input = input.split("--")[0].strip()
-
 def parse_args(input: str) -> Tuple[str, Dict[str, Any]]:
     # Extract parts enclosed in specific delimiters (triple backticks, triple quotes, single backticks)
     extracted_parts = []

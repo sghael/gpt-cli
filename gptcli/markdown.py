@@ -489,9 +489,9 @@ class CustomMarkdown(JupyterMixin):
             if node_type == "text":
                 context.on_text(token.content, node_type)
             elif node_type == "hardbreak":
-                context.on_text("\n", node_type)
+                context.on_text("\n\n", node_type)
             elif node_type == "softbreak":
-                context.on_text(" ", node_type)
+                context.on_text("\n", node_type)
             elif node_type == "link_open":
                 href = str(token.attrs.get("href", ""))
                 if self.hyperlinks:
