@@ -18,7 +18,7 @@ from gptcli.session import (ALL_COMMANDS, COMMAND_CLEAR, COMMAND_QUIT,
                             ResponseStreamer, UserInputProvider)
 
 TERMINAL_WELCOME = """
-Assistant:
+> 
 """
 
 
