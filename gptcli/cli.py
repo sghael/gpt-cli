@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from openai import BadRequestError, OpenAIError
 from prompt_toolkit import PromptSession
@@ -7,51 +7,55 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.key_binding.bindings import named_commands
 from rich.console import Console
-from rich.live import Live
-from rich.markdown import Markdown
+
+from gptcli.session import (
+    ALL_COMMANDS,
+    COMMAND_CLEAR,
+    COMMAND_QUIT,
+    COMMAND_RERUN,
+    ChatListener,
+    InvalidArgumentError,
+    ResponseStreamer,
+    UserInputProvider,
+)
 from .markdown import CustomMarkdown
 
-from rich.text import Text
-
-from gptcli.session import (ALL_COMMANDS, COMMAND_CLEAR, COMMAND_QUIT,
-                            COMMAND_RERUN, ChatListener, InvalidArgumentError,
-                            ResponseStreamer, UserInputProvider)
-
 TERMINAL_WELCOME = """
-> 
+>
 """
 
 
 class StreamingMarkdownPrinter:
     def __init__(self, console: Console, markdown: bool):
         self.console = console
-        self.current_text = ""
         self.markdown = markdown
-        self.live: Optional[Live] = None
+        self.current_text = ""
+        self.first_token = True
 
     def __enter__(self) -> "StreamingMarkdownPrinter":
-        if self.markdown:
-            self.live = Live(
-                console=self.console, auto_refresh=False, vertical_overflow="visible"
-            )
-            self.live.__enter__()
         return self
 
     def print(self, text: str):
+        if self.first_token and text.startswith(" "):
+            text = text[1:]
+        self.first_token = False
+
         self.current_text += text
         if self.markdown:
-            assert self.live
-            content = CustomMarkdown(self.current_text, style="green")
-            self.live.update(content)
-            self.live.refresh()
+            # Stream tokens as plain text
+            self.console.print(text, end="", style="green", soft_wrap=True)
         else:
-            self.console.print(Text(text, style="green"), end="")
+            self.console.print(text, end="", style="green", soft_wrap=True)
 
     def __exit__(self, *args):
         if self.markdown:
-            assert self.live
-            self.live.__exit__(*args)
-        self.console.print()
+            # Move to a new line before rendering markdown
+            self.console.print()
+            # Re-render the full content as Markdown
+            markdown_content = CustomMarkdown(self.current_text, style="green")
+            self.console.print(markdown_content)
+        else:
+            self.console.print()
 
 
 class CLIResponseStreamer(ResponseStreamer):
@@ -59,16 +63,12 @@ class CLIResponseStreamer(ResponseStreamer):
         self.console = console
         self.markdown = markdown
         self.printer = StreamingMarkdownPrinter(self.console, self.markdown)
-        self.first_token = True
 
     def __enter__(self):
         self.printer.__enter__()
         return self
 
     def on_next_token(self, token: str):
-        if self.first_token and token.startswith(" "):
-            token = token[1:]
-        self.first_token = False
         self.printer.print(token)
 
     def __exit__(self, *args):
@@ -81,8 +81,7 @@ class CLIChatListener(ChatListener):
         self.console = Console()
 
     def on_chat_start(self):
-        console = Console(width=80)
-        console.print(CustomMarkdown(TERMINAL_WELCOME))
+        self.console.print(CustomMarkdown(TERMINAL_WELCOME))
 
     def on_chat_clear(self):
         self.console.print("[bold]Cleared the conversation.[/bold]")
@@ -143,16 +142,9 @@ def parse_args(input: str) -> Tuple[str, Dict[str, Any]]:
 
     # Add back the extracted parts, with enclosing backticks or quotes
     for i, (part, delimiter) in enumerate(extracted_parts):
-        input = input.replace(f"__EXTRACTED_PART_{i}__", f"{delimiter}{part.strip()}{delimiter}")
-
-# def parse_args(input: str, parse_args = False) -> Tuple[str, Dict[str, Any]]:
-#     args = {}
-#     if parse_args:
-#         regex = r"--(\w+)(?:\s+|=)([^\s]+)"
-#         matches = re.findall(regex, input)
-#         if matches:
-#             args = dict(matches)
-#             input = input.split("--")[0].strip()
+        input = input.replace(
+            f"__EXTRACTED_PART_{i}__", f"{delimiter}{part.strip()}{delimiter}"
+        )
 
     return input, args
 
