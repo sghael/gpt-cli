@@ -1,12 +1,15 @@
 import re
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from openai import BadRequestError, OpenAIError
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.key_binding.bindings import named_commands
+
 from rich.console import Console
+from rich.live import Live  # Import Live
+from .markdown import CustomMarkdown
 
 from gptcli.session import (
     ALL_COMMANDS,
@@ -18,7 +21,6 @@ from gptcli.session import (
     ResponseStreamer,
     UserInputProvider,
 )
-from .markdown import CustomMarkdown
 
 TERMINAL_WELCOME = """
 >
@@ -31,8 +33,11 @@ class StreamingMarkdownPrinter:
         self.markdown = markdown
         self.current_text = ""
         self.first_token = True
+        self.live: Optional[Live] = None
 
     def __enter__(self) -> "StreamingMarkdownPrinter":
+        self.live = Live(console=self.console, refresh_per_second=4, transient=False)
+        self.live.__enter__()
         return self
 
     def print(self, text: str):
@@ -41,15 +46,19 @@ class StreamingMarkdownPrinter:
         self.first_token = False
 
         self.current_text += text
-        # Stream tokens as plain text
-        self.console.print(text, end="", style="green", soft_wrap=True)
+
+        if self.markdown:
+            # Render the current content as Markdown and update the live display
+            content = CustomMarkdown(self.current_text, style="green")
+            self.live.update(content)
+        else:
+            # Update the live display with plain text
+            self.live.update(self.current_text)
 
     def __exit__(self, *args):
+        if self.live:
+            self.live.__exit__(*args)
         self.console.print()
-        if self.markdown:
-            # Render the full content as Markdown below the streamed text
-            markdown_content = CustomMarkdown(self.current_text, style="green")
-            self.console.print(markdown_content)
 
 
 class CLIResponseStreamer(ResponseStreamer):
