@@ -41,21 +41,15 @@ class StreamingMarkdownPrinter:
         self.first_token = False
 
         self.current_text += text
-        if self.markdown:
-            # Stream tokens as plain text
-            self.console.print(text, end="", style="green", soft_wrap=True)
-        else:
-            self.console.print(text, end="", style="green", soft_wrap=True)
+        # Stream tokens as plain text
+        self.console.print(text, end="", style="green", soft_wrap=True)
 
     def __exit__(self, *args):
+        self.console.print()
         if self.markdown:
-            # Move to a new line before rendering markdown
-            self.console.print()
-            # Re-render the full content as Markdown
+            # Render the full content as Markdown below the streamed text
             markdown_content = CustomMarkdown(self.current_text, style="green")
             self.console.print(markdown_content)
-        else:
-            self.console.print()
 
 
 class CLIResponseStreamer(ResponseStreamer):
@@ -111,7 +105,7 @@ class CLIChatListener(ChatListener):
 
 
 def parse_args(input: str) -> Tuple[str, Dict[str, Any]]:
-    # Extract parts enclosed in specific delimiters (triple backticks, triple quotes, single backticks)
+    # Extract parts enclosed in specific delimiters
     extracted_parts = []
     delimiters = ['```', '"""', '`']
 
@@ -124,19 +118,19 @@ def parse_args(input: str) -> Tuple[str, Dict[str, Any]]:
         return f"__EXTRACTED_PART_{len(extracted_parts) - 1}__"
 
     # Construct the regex pattern dynamically from the delimiters list
-    pattern_fragments = [re.escape(d) + '(.*?)' + re.escape(d) for d in delimiters]
-    pattern = re.compile('|'.join(pattern_fragments), re.DOTALL)
+    pattern_fragments = [re.escape(d) + "(.*?)" + re.escape(d) for d in delimiters]
+    pattern = re.compile("|".join(pattern_fragments), re.DOTALL)
 
     input = pattern.sub(replacer, input)
 
     # Parse the remaining string for arguments
     args = {}
-    regex = r'--(\w+)(?:=(\S+)|\s+(\S+))?'
+    regex = r"--(\w+)(?:=(\S+)|\s+(\S+))?"
     matches = re.findall(regex, input)
 
     if matches:
         for key, value1, value2 in matches:
-            value = value1 if value1 else value2 if value2 else ''
+            value = value1 if value1 else value2 if value2 else ""
             args[key] = value.strip("\"'")
         input = re.sub(regex, "", input).strip()
 
