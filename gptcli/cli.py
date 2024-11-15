@@ -69,6 +69,7 @@ class CLIResponseStreamer(ResponseStreamer):
 
     def __enter__(self):
         self.printer.__enter__()
+        self.console.print()  # Add a newline between the prompt and output
         return self
 
     def on_next_token(self, token: str):
