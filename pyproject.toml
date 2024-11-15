@@ -17,7 +17,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "anthropic==0.34.1",
+    "anthropic==0.39.0",
     "attrs==24.2.0",
     "black==24.4.2",
     "cohere==5.8.1",
@@ -28,7 +28,7 @@ dependencies = [
     "PyYAML==6.0.2",
     "rich==13.7.1",
     "typing_extensions==4.12.2",
-    "pydantic<2",
+    "pydantic>=2.5.2",
 ]
 
 [project.optional-dependencies]
@@ -45,4 +45,3 @@ gpt = "gptcli.gpt:main"
 [build-system]
 requires = ["pip>=23.0.0", "setuptools>=58.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
-
