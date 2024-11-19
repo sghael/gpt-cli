@@ -7,12 +7,6 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.key_binding.bindings import named_commands
 
-from rich.console import Console, ConsoleOptions, RenderableType
-from rich.live import Live
-from rich.padding import Padding
-from rich.text import Text
-from rich.layout import Layout
-from rich.console.group import Group
 from .markdown import CustomMarkdown
 from gptcli.completion import Message
 
@@ -33,124 +27,41 @@ TERMINAL_WELCOME = """
 
 
 class StreamingMarkdownPrinter:
-    def __init__(self, console: Console, markdown: bool):
-        self.console = console
+    def __init__(self, markdown: bool):
         self.markdown = markdown
         self.current_text = ""
         self.first_token = True
-        self.live: Optional[Live] = None
-        
-        # Create a layout for chat history
-        self.layout = Layout()
-        self.layout.split_column(
-            Layout(name="history", ratio=1),
-            Layout(name="input_area", size=2)  # Area for input prompt
-        )
-        
-        # Initialize chat history
         self.chat_history = []
+        
     def add_to_history(self, text: str, role: str = "assistant"):
         """Add a message to chat history"""
         self.chat_history.append((text, role))
         
     def __enter__(self) -> "StreamingMarkdownPrinter":
-        self.live = Live(
-            self.layout,
-            console=self.console,
-            refresh_per_second=20,  # Increased for smoother updates
-            vertical_overflow="visible",
-            auto_refresh=True,
-            transient=False  # Changed to preserve history
-        )
-        self.live.__enter__()
+        print()  # Add a newline for spacing
         return self
-
-    def _render_chat_history(self) -> RenderableType:
-        """Render the entire chat history including current response"""
-        rendered_history = []
-        for text, role in self.chat_history:
-            if role == "user":
-                rendered_history.append(Text(f"\n> {text}\n", style="bold green"))
-            else:
-                if self.markdown:
-                    rendered_history.append(self._render_partial_markdown(text))
-                else:
-                    rendered_history.append(Text(text))
-                rendered_history.append(Text("\n"))
-                
-        # Add current response if any
-        if self.current_text:
-            if self.markdown:
-                rendered_history.append(self._render_partial_markdown(self.current_text))
-            else:
-                rendered_history.append(Text(self.current_text))
-                
-        return Group(*rendered_history)
-
-    def _render_partial_markdown(self, text: str) -> RenderableType:
-        """Render potentially incomplete markdown, handling unclosed blocks"""
-        if not self.markdown:
-            return Text(text)
-            
-        # Add temporary closing markers for unclosed code blocks
-        temp_text = text
-        backtick_count = temp_text.count("```")
-        if backtick_count % 2 == 1:
-            # Odd number of backticks means unclosed code block
-            temp_text += "\n```"
-            
-        try:
-            # Use CustomMarkdown with the temporary text
-            content = CustomMarkdown(
-                temp_text,
-                code_theme="monokai",
-                justify="left"
-            )
-            return content
-        except Exception:
-            # Fallback to plain text if markdown parsing fails
-            return Text(text)
 
     def print(self, text: str):
         if self.first_token and text.startswith(" "):
             text = text[1:]
         self.first_token = False
-
+        
         self.current_text += text
-        
-        # Update the layout with full chat history
-        self.layout["history"].update(
-            Padding(
-                self._render_chat_history(),
-                (0, 2, 0, 2)
-            )
-        )
-        
-        # Update input area
-        self.layout["input_area"].update(
-            Text("> ", style="bold green")
-        )
-        
-        if self.live:
-            self.live.update(self.layout)
+        print(text, end="", flush=True)
 
     def __exit__(self, *args):
-        if self.live:
-            # Add completed response to history before exiting
-            if self.current_text:
-                self.add_to_history(self.current_text, "assistant")
-            self.live.__exit__(*args)
+        if self.current_text:
+            self.add_to_history(self.current_text, "assistant")
+        print()  # Add a newline at the end
 
 
 class CLIResponseStreamer(ResponseStreamer):
-    def __init__(self, console: Console, markdown: bool):
-        self.console = console
+    def __init__(self, markdown: bool):
         self.markdown = markdown
-        self.printer = StreamingMarkdownPrinter(self.console, self.markdown)
+        self.printer = StreamingMarkdownPrinter(self.markdown)
 
     def __enter__(self):
         self.printer.__enter__()
-        self.console.print()  # Add a newline between prompt and output
         return self
 
     def on_next_token(self, token: str):
@@ -163,41 +74,36 @@ class CLIResponseStreamer(ResponseStreamer):
 class CLIChatListener(ChatListener):
     def __init__(self, markdown: bool):
         self.markdown = markdown
-        self.console = Console()
         self.current_printer: Optional[StreamingMarkdownPrinter] = None
 
-    def on_chat_message(self, message: Message):
-        if self.current_printer and message["role"] == "user":
-            self.current_printer.add_to_history(message["content"], "user")
-
     def on_chat_start(self):
-        self.console.print(CustomMarkdown(TERMINAL_WELCOME))
+        print("\n>")
+
+    def on_chat_message(self, message: Message):
+        if message["role"] == "user":
+            print(f"\n> {message['content']}\n")
 
     def on_chat_clear(self):
-        self.console.print("[bold]Cleared the conversation.[/bold]")
+        print("\nCleared the conversation.")
 
     def on_chat_rerun(self, success: bool):
         if success:
-            self.console.print("[bold]Re-running the last message.[/bold]")
+            print("\nRe-running the last message.")
         else:
-            self.console.print("[bold]Nothing to re-run.[/bold]")
+            print("\nNothing to re-run.")
 
     def on_error(self, e: Exception):
         if isinstance(e, BadRequestError):
-            self.console.print(
-                f"[red]Request Error. The last prompt was not saved: {type(e)}: {e}[/red]"
-            )
+            print(f"\nRequest Error. The last prompt was not saved: {type(e)}: {e}")
         elif isinstance(e, OpenAIError):
-            self.console.print(
-                f"[red]API Error. Type `r` or Ctrl-R to try again: {type(e)}: {e}[/red]"
-            )
+            print(f"\nAPI Error. Type `r` or Ctrl-R to try again: {type(e)}: {e}")
         elif isinstance(e, InvalidArgumentError):
-            self.console.print(f"[red]{e.message}[/red]")
+            print(f"\nError: {e.message}")
         else:
-            self.console.print(f"[red]Error: {type(e)}: {e}[/red]")
+            print(f"\nError: {type(e)}: {e}")
 
     def response_streamer(self) -> ResponseStreamer:
-        return CLIResponseStreamer(self.console, self.markdown)
+        return CLIResponseStreamer(self.markdown)
 
 
 def parse_args(input: str) -> Tuple[str, Dict[str, Any]]:
