@@ -38,16 +38,21 @@ class StreamingMarkdownPrinter:
         self.first_token = True
         self.live: Optional[Live] = None
         
-        # Create a layout that will scroll
+        # Create a layout with better spacing
         self.layout = Layout()
+        self.layout.split_column(
+            Layout(name="content", ratio=1),
+            Layout(size=1)  # Bottom padding
+        )
         
     def __enter__(self) -> "StreamingMarkdownPrinter":
-        # Configure Live with auto_refresh and vertical_overflow
+        # Configure Live with optimized settings
         self.live = Live(
             console=self.console,
-            refresh_per_second=10,  # Increased for smoother updates
-            vertical_overflow="visible",  # Allow content to scroll
-            auto_refresh=True
+            refresh_per_second=15,  # Higher refresh rate for smoother updates
+            vertical_overflow="visible",  # Enable scrolling
+            auto_refresh=True,
+            transient=True  # Cleaner output handling
         )
         self.live.__enter__()
         return self
@@ -86,8 +91,10 @@ class StreamingMarkdownPrinter:
         # Render the content with proper scrolling
         content = self._render_partial_markdown(self.current_text)
         
-        # Update the layout with padding for better readability
-        self.layout.update(Padding(content, (0, 1)))
+        # Update the layout with improved formatting
+        self.layout["content"].update(
+            Padding(content, (0, 2, 0, 2))  # Add horizontal padding
+        )
         
         if self.live:
             self.live.update(self.layout)
