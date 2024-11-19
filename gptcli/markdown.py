@@ -19,6 +19,7 @@ from rich.style import Style, StyleStack
 from rich.syntax import Syntax
 from rich.text import Text, TextType
 
+
 class MarkdownElement:
     new_line: ClassVar[bool] = True
 
@@ -644,8 +645,6 @@ if __name__ == "__main__":  # pragma: no cover
         help="use pager to scroll output",
     )
     args = parser.parse_args()
-
-    from rich.console import Console
 
     if args.path == "-":
         markdown_body = sys.stdin.read()

@@ -32,7 +32,7 @@ class OpenAICompletionProvider(CompletionProvider):
 
         model = args["model"]
         if model.startswith("oai-compat:"):
-            model = model[len("oai-compat:") :]
+            model = model[len("oai-compat:"):]
 
         try:
             if stream:
@@ -60,9 +60,18 @@ class OpenAICompletionProvider(CompletionProvider):
                             pricing=pricing,
                         )
                     # add the citations
-                    if len(response.choices) > 0 and response.choices[0].finish_reason:
-                        if hasattr(response, 'citations') and response.citations:
-                            yield MessageDeltaEvent(os.linesep + os.linesep + "".join([(f"{citation} [{i+1}]" + os.linesep) for i, citation in enumerate(response.citations)]))
+                    if (
+                        len(response.choices) > 0
+                        and response.choices[0].finish_reason
+                    ):
+                        if hasattr(response, "citations") and response.citations:
+                            citations_text = os.linesep + os.linesep + "".join(
+                                [
+                                    f"{citation} [{i + 1}]{os.linesep}"
+                                    for i, citation in enumerate(response.citations)
+                                ]
+                            )
+                            yield MessageDeltaEvent(citations_text)
             else:
                 response = self.client.chat.completions.create(
                     messages=cast(List[ChatCompletionMessageParam], messages),
@@ -87,76 +96,76 @@ class OpenAICompletionProvider(CompletionProvider):
             raise CompletionError(e.message) from e
 
 
-GPT_3_5_TURBO_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 0.50 / 1_000_000,
-    "response": 1.50 / 1_000_000,
+MODEL_PRICING = {
+    "gpt-3.5": {
+        "standard": {
+            "prompt": 0.50 / 1_000_000,
+            "response": 1.50 / 1_000_000,
+        },
+        "16k": {
+            "prompt": 0.003 / 1000,
+            "response": 0.004 / 1000,
+        },
+    },
+    "gpt-4": {
+        "standard": {
+            "prompt": 30.0 / 1_000_000,
+            "response": 60.0 / 1_000_000,
+        },
+        "32k": {
+            "prompt": 60.0 / 1_000_000,
+            "response": 120.0 / 1_000_000,
+        },
+        "turbo": {
+            "prompt": 10.0 / 1_000_000,
+            "response": 30.0 / 1_000_000,
+        },
+        "o-2024-05-13": {
+            "prompt": 5.0 / 1_000_000,
+            "response": 15.0 / 1_000_000,
+        },
+        "o-2024-08-06": {
+            "prompt": 2.50 / 1_000_000,
+            "response": 10.0 / 1_000_000,
+        },
+        "o-mini": {
+            "prompt": 0.150 / 1_000_000,
+            "response": 0.600 / 1_000_000,
+        },
+    },
+    "o1": {
+        "preview": {
+            "prompt": 15.0 / 1_000_000,
+            "response": 60.0 / 1_000_000,
+        },
+        "mini": {
+            "prompt": 3.0 / 1_000_000,
+            "response": 12.0 / 1_000_000,
+        },
+    },
 }
 
-GPT_3_5_TURBO_16K_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 0.003 / 1000,
-    "response": 0.004 / 1000,
-}
-
-GPT_4_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 30.0 / 1_000_000,
-    "response": 60.0 / 1_000_000,
-}
-
-GPT_4_TURBO_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 10.0 / 1_000_000,
-    "response": 30.0 / 1_000_000,
-}
-
-GPT_4_32K_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 60.0 / 1_000_000,
-    "response": 120.0 / 1_000_000,
-}
-
-GPT_4_O_2024_05_13_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 5.0 / 1_000_000,
-    "response": 15.0 / 1_000_000,
-}
-
-GPT_4_O_2024_08_06_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 2.50 / 1_000_000,
-    "response": 10.0 / 1_000_000,
-}
-
-GPT_4_O_MINI_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 0.150 / 1_000_000,
-    "response": 0.600 / 1_000_000,
-}
-
-O_1_PREVIEW_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 15.0 / 1_000_000,
-    "response": 60.0 / 1_000_000,
-}
-
-O_1_MINI_PRICE_PER_TOKEN: Pricing = {
-    "prompt": 3.0 / 1_000_000,
-    "response": 12.0 / 1_000_000,
-}
 
 def gpt_pricing(model: str) -> Optional[Pricing]:
     if model.startswith("gpt-3.5-turbo-16k"):
-        return GPT_3_5_TURBO_16K_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-3.5"]["16k"]
     elif model.startswith("gpt-3.5-turbo"):
-        return GPT_3_5_TURBO_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-3.5"]["standard"]
     elif model.startswith("gpt-4-32k"):
-        return GPT_4_32K_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-4"]["32k"]
     elif model.startswith("gpt-4o-mini"):
-        return GPT_4_O_MINI_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-4"]["o-mini"]
     elif model.startswith("gpt-4o-2024-05-13") or model.startswith("chatgpt-4o-latest"):
-        return GPT_4_O_2024_05_13_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-4"]["o-2024-05-13"]
     elif model.startswith("gpt-4o"):
-        return GPT_4_O_2024_08_06_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-4"]["o-2024-08-06"]
     elif model.startswith("gpt-4-turbo") or re.match(r"gpt-4-\d\d\d\d-preview", model):
-        return GPT_4_TURBO_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-4"]["turbo"]
     elif model.startswith("gpt-4"):
-        return GPT_4_PRICE_PER_TOKEN
+        return MODEL_PRICING["gpt-4"]["standard"]
     elif model.startswith("o1-preview"):
-        return O_1_PREVIEW_PRICE_PER_TOKEN
+        return MODEL_PRICING["o1"]["preview"]
     elif model.startswith("o1-mini"):
-        return O_1_MINI_PRICE_PER_TOKEN
+        return MODEL_PRICING["o1"]["mini"]
     else:
         return None

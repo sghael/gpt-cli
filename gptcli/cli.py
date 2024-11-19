@@ -1,14 +1,11 @@
 import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from openai import BadRequestError, OpenAIError
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.key_binding.bindings import named_commands
-
-from .markdown import CustomMarkdown
-from gptcli.completion import Message
 
 from gptcli.session import (
     ALL_COMMANDS,
@@ -21,10 +18,6 @@ from gptcli.session import (
     UserInputProvider,
 )
 
-TERMINAL_WELCOME = """
->
-"""
-
 
 class StreamingMarkdownPrinter:
     def __init__(self, markdown: bool):
@@ -32,11 +25,11 @@ class StreamingMarkdownPrinter:
         self.current_text = ""
         self.first_token = True
         self.chat_history = []
-        
+
     def add_to_history(self, text: str, role: str = "assistant"):
         """Add a message to chat history"""
         self.chat_history.append((text, role))
-        
+
     def __enter__(self) -> "StreamingMarkdownPrinter":
         print()  # Add a newline for spacing
         return self
@@ -45,7 +38,7 @@ class StreamingMarkdownPrinter:
         if self.first_token and text.startswith(" "):
             text = text[1:]
         self.first_token = False
-        
+
         self.current_text += text
         print(text, end="", flush=True)
 
@@ -74,13 +67,6 @@ class CLIResponseStreamer(ResponseStreamer):
 class CLIChatListener(ChatListener):
     def __init__(self, markdown: bool):
         self.markdown = markdown
-        self.current_printer: Optional[StreamingMarkdownPrinter] = None
-
-    def on_chat_start(self):
-        pass
-
-    def on_chat_message(self, message: Message):
-        pass
 
     def on_chat_clear(self):
         print("\nCleared the conversation.")
