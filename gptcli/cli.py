@@ -7,8 +7,11 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.key_binding.bindings import named_commands
 
-from rich.console import Console
-from rich.live import Live  # Import Live
+from rich.console import Console, ConsoleOptions, RenderableType
+from rich.live import Live
+from rich.padding import Padding
+from rich.text import Text
+from rich.layout import Layout
 from .markdown import CustomMarkdown
 
 from gptcli.session import (
@@ -34,11 +37,44 @@ class StreamingMarkdownPrinter:
         self.current_text = ""
         self.first_token = True
         self.live: Optional[Live] = None
-
+        
+        # Create a layout that will scroll
+        self.layout = Layout()
+        
     def __enter__(self) -> "StreamingMarkdownPrinter":
-        self.live = Live(console=self.console, refresh_per_second=4, transient=False)
+        # Configure Live with auto_refresh and vertical_overflow
+        self.live = Live(
+            console=self.console,
+            refresh_per_second=10,  # Increased for smoother updates
+            vertical_overflow="visible",  # Allow content to scroll
+            auto_refresh=True
+        )
         self.live.__enter__()
         return self
+
+    def _render_partial_markdown(self, text: str) -> RenderableType:
+        """Render potentially incomplete markdown, handling unclosed blocks"""
+        if not self.markdown:
+            return Text(text)
+            
+        # Add temporary closing markers for unclosed code blocks
+        temp_text = text
+        backtick_count = temp_text.count("```")
+        if backtick_count % 2 == 1:
+            # Odd number of backticks means unclosed code block
+            temp_text += "\n```"
+            
+        try:
+            # Use CustomMarkdown with the temporary text
+            content = CustomMarkdown(
+                temp_text,
+                code_theme="monokai",
+                justify="left"
+            )
+            return content
+        except Exception:
+            # Fallback to plain text if markdown parsing fails
+            return Text(text)
 
     def print(self, text: str):
         if self.first_token and text.startswith(" "):
@@ -46,17 +82,22 @@ class StreamingMarkdownPrinter:
         self.first_token = False
 
         self.current_text += text
-
-        if self.markdown:
-            # Render the current content as Markdown and update the live display
-            content = CustomMarkdown(self.current_text, style="green")
-            self.live.update(content)
-        else:
-            # Update the live display with plain text
-            self.live.update(self.current_text)
+        
+        # Render the content with proper scrolling
+        content = self._render_partial_markdown(self.current_text)
+        
+        # Update the layout with padding for better readability
+        self.layout.update(Padding(content, (0, 1)))
+        
+        if self.live:
+            self.live.update(self.layout)
 
     def __exit__(self, *args):
         if self.live:
+            # Ensure final content is displayed properly
+            content = self._render_partial_markdown(self.current_text)
+            self.layout.update(Padding(content, (0, 1)))
+            self.live.update(self.layout)
             self.live.__exit__(*args)
         self.console.print()
 
@@ -69,7 +110,7 @@ class CLIResponseStreamer(ResponseStreamer):
 
     def __enter__(self):
         self.printer.__enter__()
-        self.console.print()  # Add a newline between the prompt and output
+        self.console.print()  # Add a newline between prompt and output
         return self
 
     def on_next_token(self, token: str):
