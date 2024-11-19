@@ -38,24 +38,52 @@ class StreamingMarkdownPrinter:
         self.first_token = True
         self.live: Optional[Live] = None
         
-        # Create a layout with better spacing
+        # Create a layout for chat history
         self.layout = Layout()
         self.layout.split_column(
-            Layout(name="content", ratio=1),
-            Layout(size=1)  # Bottom padding
+            Layout(name="history", ratio=1),
+            Layout(name="input_area", size=2)  # Area for input prompt
         )
         
+        # Initialize chat history
+        self.chat_history = []
+    def add_to_history(self, text: str, role: str = "assistant"):
+        """Add a message to chat history"""
+        self.chat_history.append((text, role))
+        
     def __enter__(self) -> "StreamingMarkdownPrinter":
-        # Configure Live with optimized settings
         self.live = Live(
+            self.layout,
             console=self.console,
-            refresh_per_second=15,  # Higher refresh rate for smoother updates
-            vertical_overflow="visible",  # Enable scrolling
+            refresh_per_second=20,  # Increased for smoother updates
+            vertical_overflow="visible",
             auto_refresh=True,
-            transient=True  # Cleaner output handling
+            transient=False  # Changed to preserve history
         )
         self.live.__enter__()
         return self
+
+    def _render_chat_history(self) -> RenderableType:
+        """Render the entire chat history including current response"""
+        rendered_history = []
+        for text, role in self.chat_history:
+            if role == "user":
+                rendered_history.append(Text(f"\n> {text}\n", style="bold green"))
+            else:
+                if self.markdown:
+                    rendered_history.append(self._render_partial_markdown(text))
+                else:
+                    rendered_history.append(Text(text))
+                rendered_history.append(Text("\n"))
+                
+        # Add current response if any
+        if self.current_text:
+            if self.markdown:
+                rendered_history.append(self._render_partial_markdown(self.current_text))
+            else:
+                rendered_history.append(Text(self.current_text))
+                
+        return Group(*rendered_history)
 
     def _render_partial_markdown(self, text: str) -> RenderableType:
         """Render potentially incomplete markdown, handling unclosed blocks"""
@@ -88,12 +116,17 @@ class StreamingMarkdownPrinter:
 
         self.current_text += text
         
-        # Render the content with proper scrolling
-        content = self._render_partial_markdown(self.current_text)
+        # Update the layout with full chat history
+        self.layout["history"].update(
+            Padding(
+                self._render_chat_history(),
+                (0, 2, 0, 2)
+            )
+        )
         
-        # Update the layout with improved formatting
-        self.layout["content"].update(
-            Padding(content, (0, 2, 0, 2))  # Add horizontal padding
+        # Update input area
+        self.layout["input_area"].update(
+            Text("> ", style="bold green")
         )
         
         if self.live:
@@ -101,12 +134,10 @@ class StreamingMarkdownPrinter:
 
     def __exit__(self, *args):
         if self.live:
-            # Ensure final content is displayed properly
-            content = self._render_partial_markdown(self.current_text)
-            self.layout.update(Padding(content, (0, 1)))
-            self.live.update(self.layout)
+            # Add completed response to history before exiting
+            if self.current_text:
+                self.add_to_history(self.current_text, "assistant")
             self.live.__exit__(*args)
-        self.console.print()
 
 
 class CLIResponseStreamer(ResponseStreamer):
@@ -131,6 +162,11 @@ class CLIChatListener(ChatListener):
     def __init__(self, markdown: bool):
         self.markdown = markdown
         self.console = Console()
+        self.current_printer: Optional[StreamingMarkdownPrinter] = None
+
+    def on_chat_message(self, message: Message):
+        if self.current_printer and message["role"] == "user":
+            self.current_printer.add_to_history(message["content"], "user")
 
     def on_chat_start(self):
         self.console.print(CustomMarkdown(TERMINAL_WELCOME))
