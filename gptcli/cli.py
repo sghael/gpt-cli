@@ -12,6 +12,7 @@ from rich.live import Live
 from rich.padding import Padding
 from rich.text import Text
 from rich.layout import Layout
+from rich.group import Group
 from .markdown import CustomMarkdown
 
 from gptcli.session import (
