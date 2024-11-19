@@ -1,5 +1,5 @@
 [project]
-name = "gpt-command-line"
+name = "gpt-cli"
 version = "0.2.1"
 description = "Command-line interface for ChatGPT and Claude"
 authors = [{name = "Val Kharitonov", email = "val@kharvd.com"}]
@@ -40,7 +40,7 @@ llama = [
 "Homepage" = "https://github.com/kharvd/gpt-cli"
 
 [project.scripts]
-gpt = "gptcli.gpt:main"
+gpt-cli = "gptcli.cli_main:main"
 
 [build-system]
 requires = ["pip>=23.0.0", "setuptools>=58.0.0", "wheel"]

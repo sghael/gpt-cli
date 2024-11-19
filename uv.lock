@@ -429,7 +429,7 @@ wheels = [
 ]
 
 [[package]]
-name = "gpt-command-line"
+name = "gpt-cli"
 version = "0.2.1"
 source = { editable = "." }
 dependencies = [

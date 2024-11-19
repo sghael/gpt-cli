@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi-publish
-      url: https://pypi.org/p/gpt-command-line
+      url: https://pypi.org/p/gpt-cli
     permissions:
       id-token: write
 

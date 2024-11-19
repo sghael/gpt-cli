@@ -29,7 +29,7 @@ Command-line interface for chat LLMs.
 This install assumes a Linux/OSX machine with Python and pip available.
 
 ```bash
-pip install gpt-command-line
+pip install gpt-cli
 ```
 
 Install latest version from source:
