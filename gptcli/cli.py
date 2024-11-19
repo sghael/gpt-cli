@@ -77,7 +77,7 @@ class CLIChatListener(ChatListener):
         self.current_printer: Optional[StreamingMarkdownPrinter] = None
 
     def on_chat_start(self):
-        print("\n>")
+        pass
 
     def on_chat_message(self, message: Message):
         pass
