@@ -80,8 +80,7 @@ class CLIChatListener(ChatListener):
         print("\n>")
 
     def on_chat_message(self, message: Message):
-        if message["role"] == "user":
-            print(f"\n> {message['content']}\n")
+        pass
 
     def on_chat_clear(self):
         print("\nCleared the conversation.")
